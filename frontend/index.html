@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PropTrack — Emlak Fiyat Takibi</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.10.3/Recharts.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0c0f;
+      --bg2: #111318;
+      --bg3: #181c23;
+      --border: #1f2430;
+      --border2: #2a3040;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --accent: #3b82f6;
+      --accent2: #60a5fa;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; }
+    #root { height: 100%; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Layout */
+    .layout { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* Header */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,12,15,0.9); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 18px; font-weight: 800; letter-spacing: -0.5px;
+    }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; border: none;
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent2); transform: translateY(-1px); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+    .btn-danger { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.2); }
+    .btn-danger:hover { background: rgba(239,68,68,0.2); }
+    .btn-sm { padding: 6px 10px; font-size: 12px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Main content */
+    .main { padding: 28px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 18px 20px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .stat-icon.blue { background: rgba(59,130,246,0.15); }
+    .stat-icon.green { background: rgba(34,197,94,0.15); }
+    .stat-icon.red { background: rgba(239,68,68,0.15); }
+    .stat-val { font-size: 28px; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+    /* Add listing bar */
+    .add-bar {
+      display: flex; gap: 10px; margin-bottom: 24px;
+    }
+    .url-input {
+      flex: 1; background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; transition: border-color 0.15s;
+    }
+    .url-input:focus { border-color: var(--accent); }
+    .url-input::placeholder { color: var(--muted); }
+
+    /* Grid */
+    .listings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+
+    /* Listing card */
+    .listing-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+      cursor: pointer;
+    }
+    .listing-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+    .listing-card.loading { opacity: 0.6; }
+
+    .card-image {
+      width: 100%; height: 180px; object-fit: cover;
+      background: var(--bg3);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 32px;
+    }
+    .card-image img { width: 100%; height: 100%; object-fit: cover; }
+
+    .card-body { padding: 16px; }
+    .card-site {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 5px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .site-sahibinden { background: rgba(255,193,0,0.1); color: #fbbf24; }
+    .site-dubizzle { background: rgba(239,68,68,0.1); color: #f87171; }
+    .site-bayut { background: rgba(59,130,246,0.1); color: var(--accent2); }
+    .site-propertyfinder { background: rgba(34,197,94,0.1); color: #4ade80; }
+    .site-unknown { background: rgba(107,114,128,0.1); color: var(--muted); }
+
+    .card-title {
+      font-size: 14px; font-weight: 600; line-height: 1.4;
+      margin-bottom: 5px;
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .card-address { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+    .card-price-row {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .card-price-current {
+      font-size: 20px; font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .card-price-old {
+      font-size: 12px; color: var(--muted); text-decoration: line-through;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .price-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 8px; border-radius: 6px;
+      font-size: 12px; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .price-badge.down { background: rgba(34,197,94,0.1); color: var(--green); }
+    .price-badge.up { background: rgba(239,68,68,0.1); color: var(--red); }
+
+    .card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .card-footer-time { font-size: 11px; color: var(--muted); }
+    .card-actions { display: flex; gap: 6px; }
+
+    /* Empty state */
+    .empty-state {
+      grid-column: 1/-1;
+      text-align: center; padding: 80px 20px;
+      color: var(--muted);
+    }
+    .empty-state-icon { font-size: 56px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .modal {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 18px; width: 100%; max-width: 760px;
+      max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .modal-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 24px 24px 0;
+      gap: 16px;
+    }
+    .modal-close {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); font-size: 18px; flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .modal-close:hover { color: var(--text); border-color: var(--border2); }
+
+    .modal-image {
+      width: 100%; height: 240px; overflow: hidden;
+      margin: 16px 0 0;
+    }
+    .modal-image img { width: 100%; height: 100%; object-fit: cover; }
+
+    .modal-body { padding: 24px; }
+
+    .modal-meta {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 12px; margin-bottom: 24px;
+    }
+    .meta-item {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px;
+    }
+    .meta-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .meta-val { font-size: 18px; font-weight: 700; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+
+    .chart-section h3 {
+      font-size: 14px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .chart-wrap { background: var(--bg3); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .no-chart { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+    /* Settings */
+    .settings-modal { max-width: 520px; }
+    .settings-group { margin-bottom: 20px; }
+    .settings-label { font-size: 13px; font-weight: 600; margin-bottom: 8px; display: block; }
+    .settings-input {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      outline: none; transition: border-color 0.15s;
+    }
+    .settings-input:focus { border-color: var(--accent); }
+    .settings-hint { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .settings-row { display: flex; gap: 10px; align-items: flex-end; }
+
+    /* Toast */
+    .toast-container {
+      position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 13px; display: flex; align-items: center; gap: 10px;
+      animation: toastIn 0.2s ease;
+      min-width: 240px; max-width: 360px;
+    }
+    @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast.success { border-color: rgba(34,197,94,0.3); }
+    .toast.error { border-color: rgba(239,68,68,0.3); }
+    .toast.info { border-color: rgba(59,130,246,0.3); }
+
+    /* Toggle */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; }
+    .toggle-label-text { font-size: 14px; }
+    .toggle {
+      position: relative; width: 44px; height: 24px;
+      background: var(--border2); border-radius: 12px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; top: 3px; left: 3px;
+      transition: transform 0.2s;
+    }
+    .toggle.on::after { transform: translateX(20px); }
+
+    .divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+    /* Loading spinner */
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Refresh animation */
+    @keyframes refreshSpin { to { transform: rotate(360deg); } }
+    .refreshing { animation: refreshSpin 1s linear infinite; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+const { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } = Recharts;
+
+const API = '/api';
+
+// ─── Toast ─────────────────────────────────────────────────────────────────
+function useToast() {
+  const [toasts, setToasts] = useState([]);
+  const add = (msg, type = 'info') => {
+    const id = Date.now();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+  };
+  return { toasts, toast: add };
+}
+
+function ToastContainer({ toasts }) {
+  const icons = { success: '✓', error: '✕', info: 'ℹ' };
+  return (
+    <div className="toast-container">
+      {toasts.map(t => (
+        <div key={t.id} className={`toast ${t.type}`}>
+          <span>{icons[t.type]}</span>
+          <span>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+const fmt = (n, cur = 'AED') => n == null ? '—' : n.toLocaleString('en-US', { maximumFractionDigits: 0 }) + ' ' + cur;
+const fmtDate = (d) => d ? new Date(d).toLocaleString('tr-TR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+
+function SiteBadge({ site }) {
+  const labels = { sahibinden: 'Sahibinden', dubizzle: 'Dubizzle', bayut: 'Bayut', propertyfinder: 'Property Finder', unknown: 'Bilinmeyen' };
+  return <span className={`card-site site-${site || 'unknown'}`}>{labels[site] || site}</span>;
+}
+
+function PriceBadge({ current, previous }) {
+  if (!current || !previous || current === previous) return null;
+  const diff = current - previous;
+  const pct = ((Math.abs(diff) / previous) * 100).toFixed(1);
+  return (
+    <span className={`price-badge ${diff < 0 ? 'down' : 'up'}`}>
+      {diff < 0 ? '↓' : '↑'} {pct}%
+    </span>
+  );
+}
+
+// ─── Price Chart ───────────────────────────────────────────────────────────
+function PriceChart({ history, currency }) {
+  if (!history || history.length < 2) {
+    return <div className="no-chart">📊 Grafik için en az 2 veri noktası gerekli.<br />Manuel kontrol veya cron bekleniyor.</div>;
+  }
+
+  const data = history.map(h => ({
+    date: new Date(h.checked_at).toLocaleDateString('tr-TR', { day:'2-digit', month:'short', hour:'2-digit' }),
+    price: h.price,
+    ts: new Date(h.checked_at).getTime()
+  }));
+
+  const prices = data.map(d => d.price);
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const first = prices[0];
+  const last = prices[prices.length - 1];
+  const trending = last < first ? '#22c55e' : '#ef4444';
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ background: '#181c23', border: '1px solid #2a3040', borderRadius: 8, padding: '10px 14px' }}>
+        <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4 }}>{payload[0].payload.date}</div>
+        <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'JetBrains Mono', color: '#e8eaf0' }}>
+          {fmt(payload[0].value, currency)}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="chart-wrap">
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#1f2430" />
+          <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+          <YAxis
+            domain={[minP * 0.98, maxP * 1.02]}
+            tick={{ fill: '#6b7280', fontSize: 11, fontFamily: 'JetBrains Mono' }}
+            tickLine={false} axisLine={false}
+            tickFormatter={v => v.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            width={80}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <ReferenceLine y={first} stroke="#3b82f6" strokeDasharray="4 4" strokeOpacity={0.5} />
+          <Line
+            type="monotone" dataKey="price"
+            stroke={trending} strokeWidth={2.5}
+            dot={{ r: 4, fill: trending, stroke: '#0a0c0f', strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: trending }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ─── Listing Detail Modal ──────────────────────────────────────────────────
+function DetailModal({ id, onClose, toast }) {
+  const [data, setData] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/listings/${id}`)
+      .then(r => r.json()).then(setData)
+      .catch(() => toast('Veri yüklenemedi', 'error'));
+  }, [id]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      const r = await fetch(`${API}/listings/${id}/refresh`, { method: 'POST' });
+      const updated = await r.json();
+      if (updated.ok) {
+        const fresh = await fetch(`${API}/listings/${id}`).then(r => r.json());
+        setData(fresh);
+        toast('Güncellendi!', 'success');
+      }
+    } catch { toast('Güncelleme hatası', 'error'); }
+    finally { setRefreshing(false); }
+  }
+
+  if (!data) return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
+        <div className="spinner" style={{ width:32, height:32, borderWidth:3 }} />
+      </div>
+    </div>
+  );
+
+  const prevPrice = data.history?.length > 1 ? data.history[data.history.length - 2]?.price : null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div>
+            <SiteBadge site={data.site} />
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 6 }}>{data.title}</h2>
+            {data.address && <p style={{ fontSize: 13, color: '#6b7280', marginTop: 4 }}>📍 {data.address}</p>}
+          </div>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        {data.image_url && (
+          <div className="modal-image">
+            <img src={data.image_url} alt={data.title} onError={e => e.target.style.display='none'} />
+          </div>
+        )}
+
+        <div className="modal-body">
+          <div className="modal-meta">
+            <div className="meta-item">
+              <div className="meta-label">Güncel Fiyat</div>
+              <div className="meta-val" style={{ color: '#e8eaf0' }}>{fmt(data.current_price, data.currency)}</div>
+              {prevPrice && <PriceBadge current={data.current_price} previous={prevPrice} />}
+            </div>
+            <div className="meta-item">
+              <div className="meta-label">Önceki Fiyat</div>
+              <div className="meta-val" style={{ color: '#6b7280' }}>{fmt(prevPrice, data.currency)}</div>
+            </div>
+            <div className="meta-item">
+              <div className="meta-label">Veri Noktası</div>
+              <div className="meta-val" style={{ color: '#3b82f6' }}>{data.history?.length || 0}</div>
+            </div>
+          </div>
+
+          <div className="chart-section">
+            <h3>Fiyat Geçmişi</h3>
+            <PriceChart history={data.history} currency={data.currency} />
+          </div>
+
+          <div style={{ display:'flex', gap:10, marginTop:16 }}>
+            <button className="btn btn-primary" onClick={handleRefresh} disabled={refreshing}>
+              {refreshing ? <span className="spinner" /> : '↻'}
+              Şimdi Kontrol Et
+            </button>
+            <a href={data.url} target="_blank" rel="noreferrer">
+              <button className="btn btn-ghost">🔗 İlana Git</button>
+            </a>
+          </div>
+
+          <div style={{ fontSize:11, color:'#6b7280', marginTop:12 }}>
+            Son kontrol: {fmtDate(data.last_checked)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings Modal ─────────────────────────────────────────────────────────
+function SettingsModal({ onClose, toast }) {
+  const [settings, setSettings] = useState({
+    telegram_bot_token: '', telegram_chat_id: '',
+    check_interval_hours: '6',
+    notify_on_increase: '1', notify_on_decrease: '1'
+  });
+  const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/settings`).then(r => r.json()).then(s => setSettings(prev => ({ ...prev, ...s })));
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch(`${API}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+      toast('Ayarlar kaydedildi', 'success');
+      onClose();
+    } catch { toast('Kayıt hatası', 'error'); }
+    finally { setSaving(false); }
+  }
+
+  async function handleTest() {
+    setTesting(true);
+    try {
+      const r = await fetch(`${API}/settings/test-telegram`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: settings.telegram_bot_token, chat_id: settings.telegram_chat_id })
+      });
+      const d = await r.json();
+      if (d.ok) toast('✅ Telegram test başarılı!', 'success');
+      else toast(`Telegram hatası: ${d.error}`, 'error');
+    } catch { toast('Bağlantı hatası', 'error'); }
+    finally { setTesting(false); }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal settings-modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ paddingBottom: 20 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700 }}>⚙️ Ayarlar</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+
+        <div className="modal-body" style={{ paddingTop: 8 }}>
+          {/* Telegram */}
+          <div style={{ marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
+              📱 Telegram Bildirimleri
+            </div>
+            <div className="settings-group">
+              <label className="settings-label">Bot Token</label>
+              <input className="settings-input" type="password"
+                placeholder="1234567890:ABC..."
+                value={settings.telegram_bot_token?.includes('...') ? '' : settings.telegram_bot_token}
+                onChange={e => setSettings(s => ({ ...s, telegram_bot_token: e.target.value }))}
+              />
+              <div className="settings-hint">
+                @BotFather'dan al → /newbot → token kopyala
+              </div>
+            </div>
+
+            <div className="settings-group">
+              <label className="settings-label">Chat ID</label>
+              <div className="settings-row">
+                <input className="settings-input" type="text"
+                  placeholder="@username veya -1001234567890"
+                  value={settings.telegram_chat_id}
+                  onChange={e => setSettings(s => ({ ...s, telegram_chat_id: e.target.value }))}
+                />
+                <button className="btn btn-ghost btn-sm" onClick={handleTest} disabled={testing} style={{ white-space: 'nowrap', flexShrink: 0 }}>
+                  {testing ? <span className="spinner" /> : 'Test'}
+                </button>
+              </div>
+              <div className="settings-hint">
+                @userinfobot'a yaz, ID'ni öğren
+              </div>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          {/* Cron */}
+          <div style={{ marginBottom: 4 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
+              🕐 Kontrol Sıklığı
+            </div>
+            <div className="settings-group">
+              <label className="settings-label">Her kaç saatte bir kontrol edilsin?</label>
+              <select className="settings-input"
+                value={settings.check_interval_hours}
+                onChange={e => setSettings(s => ({ ...s, check_interval_hours: e.target.value }))}
+                style={{ cursor: 'pointer' }}
+              >
+                {[1,2,3,4,6,8,12,24].map(h => <option key={h} value={h}>{h} saat</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          {/* Notification triggers */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              🔔 Bildirim Tetikleyici
+            </div>
+            <div className="toggle-row">
+              <span className="toggle-label-text">Fiyat düşünce bildir 📉</span>
+              <div className={`toggle ${settings.notify_on_decrease === '1' ? 'on' : ''}`}
+                onClick={() => setSettings(s => ({ ...s, notify_on_decrease: s.notify_on_decrease === '1' ? '0' : '1' }))} />
+            </div>
+            <div className="toggle-row">
+              <span className="toggle-label-text">Fiyat artınca bildir 📈</span>
+              <div className={`toggle ${settings.notify_on_increase === '1' ? 'on' : ''}`}
+                onClick={() => setSettings(s => ({ ...s, notify_on_increase: s.notify_on_increase === '1' ? '0' : '1' }))} />
+            </div>
+          </div>
+
+          <div className="divider" />
+
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ width: '100%', justifyContent:'center' }}>
+            {saving ? <span className="spinner" /> : '💾 Kaydet'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Listing Card ──────────────────────────────────────────────────────────
+function ListingCard({ listing, onDetail, onDelete, onRefresh }) {
+  const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleDelete(e) {
+    e.stopPropagation();
+    setDeleting(true);
+    await onDelete(listing.id);
+  }
+
+  async function handleRefresh(e) {
+    e.stopPropagation();
+    setRefreshing(true);
+    await onRefresh(listing.id);
+    setRefreshing(false);
+  }
+
+  const isLoading = listing.title === 'Yükleniyor...' || listing.title === 'Scrape hatası';
+
+  return (
+    <div className={`listing-card ${isLoading ? 'loading' : ''}`} onClick={() => !isLoading && onDetail(listing.id)}>
+      <div className="card-image">
+        {listing.image_url
+          ? <img src={listing.image_url} alt={listing.title} onError={e => { e.target.style.display='none'; e.target.parentNode.innerHTML='🏠'; }} />
+          : '🏠'
+        }
+      </div>
+
+      <div className="card-body">
+        <SiteBadge site={listing.site} />
+        <div className="card-title">{listing.title || 'Yükleniyor...'}</div>
+        {listing.address && <div className="card-address">📍 {listing.address}</div>}
+
+        <div className="card-price-row">
+          <div>
+            <div className="card-price-current">
+              {listing.current_price ? fmt(listing.current_price, listing.currency) : '—'}
+            </div>
+            {listing.previous_price && listing.previous_price !== listing.current_price && (
+              <div className="card-price-old">{fmt(listing.previous_price, listing.currency)}</div>
+            )}
+          </div>
+          <PriceBadge current={listing.current_price} previous={listing.previous_price} />
+        </div>
+
+        <div className="card-footer">
+          <span className="card-footer-time">{listing.last_checked ? fmtDate(listing.last_checked) : 'Kontrol bekleniyor'}</span>
+          <div className="card-actions" onClick={e => e.stopPropagation()}>
+            <button className="btn btn-ghost btn-sm" onClick={handleRefresh} disabled={refreshing} title="Şimdi kontrol et">
+              <span className={refreshing ? 'refreshing' : ''}>↻</span>
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={handleDelete} disabled={deleting} title="Sil">
+              {deleting ? <span className="spinner" /> : '×'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── App ───────────────────────────────────────────────────────────────────
+function App() {
+  const [listings, setListings] = useState([]);
+  const [stats, setStats] = useState({ total: 0, drops: 0, rises: 0 });
+  const [url, setUrl] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [checkingAll, setCheckingAll] = useState(false);
+  const [detailId, setDetailId] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { toasts, toast } = useToast();
+  const pollRef = useRef(null);
+
+  async function loadListings() {
+    try {
+      const [ls, st] = await Promise.all([
+        fetch(`${API}/listings`).then(r => r.json()),
+        fetch(`${API}/stats`).then(r => r.json())
+      ]);
+      setListings(ls);
+      setStats(st);
+    } catch {
+      toast('API bağlantısı kurulamadı. Backend çalışıyor mu?', 'error');
+    }
+  }
+
+  useEffect(() => {
+    loadListings();
+    pollRef.current = setInterval(loadListings, 15000);
+    return () => clearInterval(pollRef.current);
+  }, []);
+
+  async function handleAdd() {
+    if (!url.trim()) return;
+    setAdding(true);
+    try {
+      const r = await fetch(`${API}/listings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim() })
+      });
+      const d = await r.json();
+      if (r.status === 409) { toast('Bu ilan zaten eklendi!', 'error'); return; }
+      if (!r.ok) { toast(d.error || 'Hata oluştu', 'error'); return; }
+      toast('İlan eklendi, fiyat çekiliyor...', 'info');
+      setUrl('');
+      setTimeout(loadListings, 2000);
+      setTimeout(loadListings, 6000);
+    } catch { toast('Bağlantı hatası', 'error'); }
+    finally { setAdding(false); }
+  }
+
+  async function handleDelete(id) {
+    try {
+      await fetch(`${API}/listings/${id}`, { method: 'DELETE' });
+      setListings(ls => ls.filter(l => l.id !== id));
+      toast('İlan silindi', 'info');
+    } catch { toast('Silme hatası', 'error'); }
+  }
+
+  async function handleRefresh(id) {
+    try {
+      const r = await fetch(`${API}/listings/${id}/refresh`, { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) { await loadListings(); toast('Güncellendi!', 'success'); }
+      else toast('Güncelleme başarısız', 'error');
+    } catch { toast('Güncelleme hatası', 'error'); }
+  }
+
+  async function handleCheckAll() {
+    setCheckingAll(true);
+    try {
+      await fetch(`${API}/check-all`, { method: 'POST' });
+      toast('Tüm ilanlar kontrol ediliyor...', 'info');
+      setTimeout(loadListings, 3000);
+    } catch { toast('Hata', 'error'); }
+    finally { setCheckingAll(false); }
+  }
+
+  const handleKeyDown = (e) => { if (e.key === 'Enter') handleAdd(); };
+
+  return (
+    <div className="layout">
+      {/* Header */}
+      <header className="header">
+        <div className="logo">
+          <div className="logo-dot" />
+          PropTrack
+        </div>
+        <div className="header-actions">
+          <button className="btn btn-ghost btn-sm" onClick={handleCheckAll} disabled={checkingAll}>
+            {checkingAll ? <span className="spinner" /> : '↻'} Tümünü Kontrol Et
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setSettingsOpen(true)}>
+            ⚙️ Ayarlar
+          </button>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="main">
+        {/* Stats */}
+        <div className="stats-bar">
+          <div className="stat-card">
+            <div className="stat-icon blue">🏠</div>
+            <div>
+              <div className="stat-val">{stats.total}</div>
+              <div className="stat-label">Takip Edilen İlan</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon green">📉</div>
+            <div>
+              <div className="stat-val" style={{ color: '#22c55e' }}>{stats.drops}</div>
+              <div className="stat-label">Fiyat Düştü</div>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon red">📈</div>
+            <div>
+              <div className="stat-val" style={{ color: '#ef4444' }}>{stats.rises}</div>
+              <div className="stat-label">Fiyat Arttı</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Add bar */}
+        <div className="add-bar">
+          <input
+            className="url-input"
+            type="url"
+            placeholder="https://sahibinden.com/ilan/... veya dubizzle.com/for-sale/... veya bayut.com/..."
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <button className="btn btn-primary" onClick={handleAdd} disabled={adding || !url.trim()}>
+            {adding ? <span className="spinner" /> : '+'}
+            İlan Ekle
+          </button>
+        </div>
+
+        {/* Grid */}
+        <div className="listings-grid">
+          {listings.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">🏡</div>
+              <h3>Henüz ilan eklenmedi</h3>
+              <p>Yukarıya sahibinden.com, dubizzle, bayut veya propertyfinder URL'si yapıştır.</p>
+            </div>
+          ) : (
+            listings.map(l => (
+              <ListingCard
+                key={l.id}
+                listing={l}
+                onDetail={setDetailId}
+                onDelete={handleDelete}
+                onRefresh={handleRefresh}
+              />
+            ))
+          )}
+        </div>
+      </main>
+
+      {/* Detail Modal */}
+      {detailId && <DetailModal id={detailId} onClose={() => setDetailId(null)} toast={toast} />}
+
+      {/* Settings Modal */}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} toast={toast} />}
+
+      {/* Toasts */}
+      <ToastContainer toasts={toasts} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
